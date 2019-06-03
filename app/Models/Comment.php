@@ -21,7 +21,23 @@ class Comment
                   where t.name = :thread_name
                   order by c.path";
 
-        return DB::select($query, ['thread_name' => $thread_name]);
+
+        $result = DB::select($query, ['thread_name' => $thread_name]);
+
+        $array = [];
+
+        foreach ($result as $item) {
+
+            if (!$parentId = $item->parent_comment_id) {
+                $parentId = 0;
+            }
+
+            $array[$parentId][] = $item;
+        }
+
+        $array = json_decode(json_encode($array), 1);
+
+        return static::recursiveTree($array, 0);
     }
 
     /**
@@ -105,5 +121,27 @@ class Comment
                     $updated_at,
                 ]);
         });
+    }
+
+    private static function recursiveTree(array &$array, int $parentId): array
+    {
+        $result = [];
+
+        if (!isset($array[$parentId])) {
+            return $result;
+        }
+
+        foreach ($array[$parentId] as $item) {
+
+            $children = static::recursiveTree($array, $item['id']);
+
+            if ($children) {
+                $item['children_comments'] = $children;
+            }
+
+            $result[] = $item;
+        }
+
+        return $result;
     }
 }
