@@ -40,6 +40,8 @@ class Comment
 
         DB::transaction(function () use ($thread_name, $parent_comment_id, $author_name, $text) {
 
+            $created_at = $updated_at = date('Y-m-d H:i:s');
+
             $thread = DB::select("select * from threads where `name` = :thread_name", ['thread_name' => $thread_name]);
 
             // Проверяем существует ли такой thread, если нет добавляем новый
@@ -50,7 +52,12 @@ class Comment
                     throw new \Exception('Invalid param parent_comment_id for new thread');
                 }
 
-                $thread_id = DB::table('threads')->insertGetId(['name' => $thread_name]);
+                $thread_id = DB::table('threads')
+                    ->insertGetId([
+                        'name'       => $thread_name,
+                        'created_at' => $created_at,
+                        'updated_at' => $updated_at,
+                    ]);
             } else {
                 $thread_id = $thread[0]->id;
             }
@@ -61,7 +68,8 @@ class Comment
                     'parent_comment_id' => $parent_comment_id,
                 ]);
 
-            if (!$comment) {
+            // Если parent_comment_id не существует у текущего thread'a
+            if ($thread && !$comment && $parent_comment_id != null) {
                 throw new \Exception('Invalid param parent_comment_id with value ' . $parent_comment_id);
             }
 
@@ -86,8 +94,16 @@ class Comment
                 $path = '1';
             }
 
-            DB::insert('insert into comments (thread_id, parent_comment_id, author_name, text, path) values (?, ?, ?, ?, ?)',
-                [$thread_id, $parent_comment_id, $author_name, $text, $path]);
+            DB::insert('insert into comments (thread_id, parent_comment_id, author_name, text, path, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)',
+                [
+                    $thread_id,
+                    $parent_comment_id,
+                    $author_name,
+                    $text,
+                    $path,
+                    $created_at,
+                    $updated_at,
+                ]);
         });
     }
 }
